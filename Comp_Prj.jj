@@ -1,0 +1,75 @@
+
+PARSER_BEGIN(Parser)
+
+import java.util.ArrayList;
+
+public class Parser {
+
+    static class NonTerminal{
+	String val;
+	public static String her;
+        public static String her1;
+        public static String her2;
+        public static String  loopComp;
+    }
+    static class Quadruplet {
+	String operateur;
+    	String operande1, operande2;
+   	String destination;
+	Quadruplet(String o, String op1, String op2, String des) {operateur = o; operande1 = op1; operande2 = op2; destination = des;}
+    }
+
+    public static ArrayList <Quadruplet> TABQuad = new ArrayList<Quadruplet>();
+
+    public static void main(String[] args) {
+	try{
+       		new Parser(new java.io.StringReader(args[0])).S(); //22
+       		System.out.println("\n La syntaxe est correcte \n\n Le code Intermediaire genere : \n");
+		for ( int i = 0 ; i < TABQuad.size() ; i++ ) 
+        		System.out.println(TABQuad.get(i).operateur +" "+TABQuad.get(i).operande1 +" "+TABQuad.get(i).operande2+" "+TABQuad.get(i).destination);
+	} catch (Throwable e) {
+		System.out.println("La syntaxe est erronee\n\n" + e.getMessage());
+	}
+    }
+}
+
+PARSER_END(Parser)
+
+SKIP: { " " | "\t" | "\n" | "\r" }
+TOKEN: { <NUM: (["0"-"9"])+> | "(" | ")" | "int" | "float" | "for" | "while" | "if" | "else" | "{" | "}" | "=" | "==" | "<" | ">" | "<=" | ">=" |";"| "!=" | "*" | "+" | "." | "-" | "/" | <ID: (["a"-"z"])+> }
+
+void S(): {}
+{
+  Function() <EOF> 
+}
+
+void Function(): {Parser.NonTerminal e; Parser.Quadruplet quad;Token n;} { Type() n = <ID> {quad = new Parser.Quadruplet("begin",String.valueOf(n),"","TEMP1");TABQuad.add(quad); } "(" ArgList() ")" CompoundStmt() }
+void ArgList(): {} { Arg() AA()} 
+void AA(): {} {  "," Arg()  AA() | Empty() }
+void Arg(): {Parser.Quadruplet quad;Parser.NonTerminal e = new Parser.NonTerminal();Token n;} { e.val=Type() n=<ID> {quad = new Parser.Quadruplet("decARG",e.val,String.valueOf(n),"TEMP2");TABQuad.add(quad);}}
+void Declaration(): {Parser.NonTerminal e1 = new Parser.NonTerminal();} { e1.her = Type() IdentList() ";"}
+String Type(): {} { "int" {return "int" ;}  | "float" {return "float" ;}}
+void IdentList(): {Parser.Quadruplet quad; Parser.NonTerminal e1= new Parser.NonTerminal();Token n;} { n = <ID> {quad = new Parser.Quadruplet("declararion",e1.her,String.valueOf(n),"TEMP3");TABQuad.add(quad);}   II() } 
+void II(): {} {  "," IdentList() | Empty()  }
+
+void Stmt(): {} { ForStmt() | WhileStmt()| Expr() ";"| IfStmt() | CompoundStmt() | Declaration() | ";" }
+void ForStmt(): {} { "for" "(" Expr() ";" OptExpr() ";" OptExpr() ")" Stmt() }
+void OptExpr(): {} {  Expr() | Empty() }
+void WhileStmt(): {Parser.Quadruplet quad;} { "while" { quad = new Parser.Quadruplet("DebutWhileStmt"," "," " , "");TABQuad.add(quad); } "(" Expr() ")" Stmt() { quad = new Parser.Quadruplet("JMP"," "," " , "DebutWhileStmt");TABQuad.add(quad); quad = new Parser.Quadruplet("FinStmt"," "," " , "");TABQuad.add(quad);   } } 
+void IfStmt(): { Parser.Quadruplet quad;} { "if" "(" Expr() ")" Stmt() {quad = new Parser.Quadruplet("FinStmt"," "," " , "");TABQuad.add(quad);   } ElsePart() }
+void ElsePart(): {} {  "else" Stmt()  | Empty() }    ///35
+void CompoundStmt(): {} { "{" StmtList() "}" }
+void StmtList(): {} { SS() }
+void SS(): {} {  Stmt() SS() | Empty() }
+
+void Expr(): {} {  LOOKAHEAD(2) <ID> "=" Expr()  { } | Rvalue() }
+void Rvalue(): {Parser.NonTerminal e= new Parser.NonTerminal(); Parser.Quadruplet quad;} { e.her2= Mag() RR() } 
+void RR(): {Parser.NonTerminal e1= new Parser.NonTerminal();Parser.NonTerminal e2= new Parser.NonTerminal(); Parser.Quadruplet quad;} { e1.val=Compare() e2.val=Mag() { quad = new Parser.Quadruplet("COMP",e1.her2,e2.val,"TEMP4"); TABQuad.add(quad);  quad = new Parser.Quadruplet(e1.val," "," ","FinStmt");TABQuad.add(quad);} RR() | Empty() }
+String Compare(): {} { "==" {return "JNE" ;}| "<" {return "JGE" ;} | ">" {return "JLE" ;}| "<="  {return "JG" ;}| ">=" {return "JL" ;} | "!=" {return "JE" ;} }
+String Mag(): {Parser.NonTerminal e= new Parser.NonTerminal();} {e.her1=Term() MM() {return e.her1;}}
+void MM(): {Parser.NonTerminal e= new Parser.NonTerminal();Parser.Quadruplet quad;} { "+" e.val=Term() {quad = new Parser.Quadruplet("+",e.her1,e.val,"TEMP5");TABQuad.add(quad);} MM() | "-" e.val =Term() {quad = new Parser.Quadruplet("-",e.her1,e.val,"TEMP6");TABQuad.add(quad);} MM() |  Empty() } 
+String Term(): {Parser.NonTerminal e= new Parser.NonTerminal();} { e.her=Factor()  TT() {return e.her;} }
+void TT(): {Parser.NonTerminal e= new Parser.NonTerminal();Parser.Quadruplet quad;} {  "*" e.val=Factor() {quad = new Parser.Quadruplet("*",e.her,e.val,"TEMP3");e.her="TEMP7";TABQuad.add(quad);}  TT()  |  "/" e.val=Factor() {quad = new Parser.Quadruplet("/",e.her,e.val,"TEMP8");e.her="TEMP8";TABQuad.add(quad);} TT() | Empty() }
+String Factor(): {Token n;} { "(" Expr() ")" {return ""; }| "-" Factor() {return "-"+Factor(); } | "+" Factor() {return "+"+Factor(); }| n = <ID> {return String.valueOf(n);} | n = <NUM> {return String.valueOf(n);}}
+
+void Empty():{}{{}}
